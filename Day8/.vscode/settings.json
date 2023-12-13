@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./pb2-v3/Cargo.toml"
+    ]
+}
