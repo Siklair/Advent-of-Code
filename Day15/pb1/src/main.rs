@@ -17,7 +17,7 @@ fn main() {
             if let Ok(text) = line {
 
                 if text.contains('\n') { unreachable!() }
-                let mut split = text.split(",");
+                let split = text.split(",");
 
                 for s in split {
                     total += hash_algorithm(s);
