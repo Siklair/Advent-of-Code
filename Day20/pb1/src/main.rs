@@ -95,7 +95,7 @@ impl Sender {
         Some((self.name(), p, self.destination.clone()))
     }
 
-    fn send(&mut self, pulse: Pulse, dest: &mut Vec<Sender>) -> Vec<(String, Pulse, Vec<String>)> {
+    fn send(&mut self, pulse: Pulse, dest: &mut [Sender]) -> Vec<(String, Pulse, Vec<String>)> {
         let mut res: Vec<(String, Pulse, Vec<String>)> = Vec::new();
         for destination in dest.iter_mut() {
             match pulse {
