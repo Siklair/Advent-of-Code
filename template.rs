@@ -11,10 +11,8 @@ fn main() {
         );
 
     if let Ok(lines) = read_lines(file) {
-        for line in lines {
-            if let Ok(text) = line {
+        for line in lines.flatten() {
 
-            }
         }
     }
 
