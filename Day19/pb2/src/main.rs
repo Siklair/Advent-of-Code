@@ -1,17 +1,20 @@
 use crate::ResultWorkflow::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::ops::Range;
 use std::path::Path;
+use std::{env, vec};
+
+const SIZE_OF_PART: usize = 4000;
 
 struct Workflow {
     filter: Vec<Box<FilterFn>>,
     default: ResultWorkflow,
 }
 
-type FilterFn = dyn FnMut(&Part) -> ResultWorkflow;
+type FilterFn = dyn FnMut(&PartRange) -> OutputFilter;
 
 impl Workflow {
     fn new(default: ResultWorkflow) -> Self {
@@ -25,17 +28,30 @@ impl Workflow {
         self.filter.push(filter);
     }
 
-    fn call(&mut self, part: &Part) -> ResultWorkflow {
+    fn call(&mut self, part: &PartRange) -> OutputWorkflow {
+        let mut res = Vec::new();
+        let mut to_filter = part.clone();
+        let mut last_to_default = true;
         for f in self.filter.iter_mut() {
-            match f(part) {
-                None => continue,
-                x => return x,
+            let (accepted, rejected) = f(&to_filter);
+            if let Some(x) = accepted {
+                res.push(x);
+            }
+            if let Some((part, _)) = rejected {
+                to_filter = part;
+            } else {
+                last_to_default = false;
+                break;
             }
         }
-        self.default.clone()
+        if last_to_default {
+            res.push((to_filter, self.default.clone()));
+        }
+        res
     }
 }
 
+#[derive(Clone)]
 struct Filter {
     category: char,
     ord: Ordering,
@@ -53,24 +69,59 @@ impl Filter {
         }
     }
 
+    // returns: (accepted, rejected)
+    fn accepted(r: Range<usize>, threshold: usize, ord: Ordering) -> (Range<usize>, Range<usize>) {
+        match ord {
+            Ordering::Less => (r.start..r.end.min(threshold), r.start.max(threshold)..r.end),
+            Ordering::Greater => (
+                r.start.max(threshold + 1)..r.end,
+                r.start..r.end.min(threshold + 1),
+            ),
+            _ => unreachable!(),
+        }
+    }
+
+    fn take_range(&self, part: &PartRange) -> OutputFilter {
+        let value = match self.category {
+            'x' => &part.x,
+            'm' => &part.m,
+            'a' => &part.a,
+            's' => &part.s,
+            _ => unreachable!(),
+        };
+        let (accepted, rejected) = Self::accepted(value.clone(), self.val, self.ord);
+        let accepted_res = if !accepted.is_empty() {
+            Some((
+                part.clone_but(self.category, accepted.clone()),
+                self.res.clone(),
+            ))
+        } else {
+            Option::None
+        };
+        let rejected_res = if !rejected.is_empty() {
+            Some((part.clone_but(self.category, rejected.clone()), None))
+        } else {
+            Option::None
+        };
+        /* {
+            println!(
+                "value: {value:?}, threshold: {val}, ord: {ord:?}, accepted: {accepted:?}, rejected: {rejected:?}",
+                val = self.val,
+                ord = self.ord,
+            );
+        } */
+        (accepted_res, rejected_res)
+    }
+
     fn as_fun(&self) -> Box<FilterFn> {
-        let (category, ord, val, res) = (self.category, self.ord, self.val, self.res.clone());
-        Box::new(move |part| {
-            let value = match category {
-                'x' => part.x,
-                'm' => part.m,
-                'a' => part.a,
-                's' => part.s,
-                _ => unreachable!(),
-            };
-            if value.cmp(&val) == ord {
-                res.clone()
-            } else {
-                None
-            }
-        })
+        let clone = self.clone();
+        Box::new(move |part| clone.take_range(part))
     }
 }
+
+type Pairing = (PartRange, ResultWorkflow);
+type OutputFilter = (Option<Pairing>, Option<Pairing>);
+type OutputWorkflow = Vec<Pairing>;
 
 #[derive(Clone, Eq, PartialEq)]
 enum ResultWorkflow {
@@ -90,17 +141,31 @@ impl ResultWorkflow {
     }
 }
 
-#[derive(Copy, Clone)]
-struct Part {
-    x: usize,
-    m: usize,
-    a: usize,
-    s: usize,
+#[derive(Clone)]
+struct PartRange {
+    x: Range<usize>,
+    m: Range<usize>,
+    a: Range<usize>,
+    s: Range<usize>,
 }
 
-impl Part {
-    fn new(x: usize, m: usize, a: usize, s: usize) -> Self {
+impl PartRange {
+    fn new(x: Range<usize>, m: Range<usize>, a: Range<usize>, s: Range<usize>) -> Self {
         Self { x, m, a, s }
+    }
+
+    fn clone_but(&self, category: char, range: Range<usize>) -> Self {
+        match category {
+            'x' => Self::new(range, self.m.clone(), self.a.clone(), self.s.clone()),
+            'm' => Self::new(self.x.clone(), range, self.a.clone(), self.s.clone()),
+            'a' => Self::new(self.x.clone(), self.m.clone(), range, self.s.clone()),
+            's' => Self::new(self.x.clone(), self.m.clone(), self.a.clone(), range),
+            _ => unreachable!(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.x.len() * self.m.len() * self.a.len() * self.s.len()
     }
 }
 
@@ -162,24 +227,36 @@ fn main() {
     }
 
     // computation
+
+    // ranges from 1 to SIZE_OF_PART
+    let init_range = 1..SIZE_OF_PART + 1;
+    let init_part = PartRange::new(
+        init_range.clone(),
+        init_range.clone(),
+        init_range.clone(),
+        init_range.clone(),
+    );
+    let result = Send("in".to_string());
+    let mut parts = vec![(init_part, result)];
     let mut total = 0;
-    let parts = Vec::new();
 
-    for part in parts {
-        let mut result = Send("in".to_string());
-
-        while result != Accepted && result != Rejected {
-            if let Send(name) = result.clone() {
-                let workflow = map_workflows.get_mut(&name).unwrap();
-                result = workflow.call(&part);
-            } else {
-                unreachable!()
+    while !parts.is_empty() {
+        let mut new_parts = Vec::new();
+        for (part, result) in parts {
+            match result {
+                Accepted => {
+                    total += part.len();
+                }
+                Rejected => {}
+                Send(name) => {
+                    let workflow = map_workflows.get_mut(&name).unwrap();
+                    let mut res = workflow.call(&part);
+                    new_parts.append(&mut res);
+                }
+                None => unreachable!(),
             }
         }
-
-        if result == Accepted {
-            total += part.x + part.m + part.a + part.s;
-        }
+        parts = new_parts;
     }
 
     println!("{total}");
