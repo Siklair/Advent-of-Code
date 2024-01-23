@@ -162,7 +162,7 @@ fn main() {
     let file = env::current_dir().unwrap()
         .parent().unwrap()
         .join(
-            Path::new("input.txt")
+            Path::new("input_test2.txt")
         );
 
     let mut map = Map::new();
@@ -176,7 +176,7 @@ fn main() {
                 let mut split = text.split(" ");
                 let direction = Direction::from_char(split.next().unwrap().chars().next().unwrap());
                 let num: usize = split.next().unwrap().parse().unwrap();
-                let _color = split.next().unwrap();
+                //let _color = split.next().unwrap();
 
                 current_pos = map.add_range(current_pos, direction, num);
             }

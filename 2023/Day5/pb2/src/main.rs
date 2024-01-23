@@ -30,7 +30,7 @@ impl MyRange {
     pub fn intersect(&self, other: &Self) -> Self {
         let start = self.start.max(other.start);
         let end = self.end.min(other.end);
-        return Self{start, end,};
+        Self{start, end,}
     }
 
     pub fn diff(&self, other: &Self) -> Vec<Self> {

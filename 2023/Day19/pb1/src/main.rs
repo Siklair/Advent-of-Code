@@ -1,20 +1,20 @@
+use crate::ResultWorkflow::*;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::env;
-use std::path::Path;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::cmp::Ordering;
-use crate::ResultWorkflow::*;
+use std::path::Path;
 
 struct Workflow {
     filter: Vec<Box<dyn FnMut(&Part) -> ResultWorkflow>>,
-    default: ResultWorkflow,
+    default: RsesultWorkflow,
 }
 
 impl Workflow {
-    fn new(default: ResultWorkflow ) -> Self {
-        Self { 
-            filter: Vec::new(), 
+    fn new(default: ResultWorkflow) -> Self {
+        Self {
+            filter: Vec::new(),
             default,
         }
     }
@@ -42,9 +42,13 @@ struct Filter {
 }
 
 impl Filter {
-
     fn new(category: char, ord: Ordering, val: usize, res: ResultWorkflow) -> Self {
-        Self { category, ord, val, res }
+        Self {
+            category,
+            ord,
+            val,
+            res,
+        }
     }
 
     fn as_fun(&self) -> Box<dyn FnMut(&Part) -> ResultWorkflow> {
@@ -99,11 +103,11 @@ impl Part {
 }
 
 fn main() {
-    let file = env::current_dir().unwrap()
-        .parent().unwrap()
-        .join(
-            Path::new("input.txt")
-        );
+    let file = env::current_dir()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join(Path::new("input.txt"));
 
     let mut map_workflows: HashMap<String, Workflow> = HashMap::new();
     let mut parts: Vec<Part> = Vec::new();
@@ -118,7 +122,8 @@ fn main() {
                     continue;
                 }
 
-                if !at_part { // parse px{a<2006:qkq,m>2090:A,rfg}
+                if !at_part {
+                    // parse px{a<2006:qkq,m>2090:A,rfg}
                     let (name, remainder) = text.split_once("{").unwrap();
 
                     let mut filters: Vec<Filter> = Vec::new();
@@ -140,10 +145,9 @@ fn main() {
                             let result = ResultWorkflow::from_str(split.next().unwrap());
 
                             filters.push(Filter::new(category, comp, val, result));
-
                         } else {
-                            default = ResultWorkflow::from_str(&s[..(s.len()-1)]);
-                            break
+                            default = ResultWorkflow::from_str(&s[..(s.len() - 1)]);
+                            break;
                         }
                     }
 
@@ -153,8 +157,9 @@ fn main() {
                     }
 
                     map_workflows.insert(name.to_string(), workflow);
-                } else { // parse {x=787,m=2655,a=1222,s=2876}
-                    let mut split = text[1..(text.len()-1)].split(",");
+                } else {
+                    // parse {x=787,m=2655,a=1222,s=2876}
+                    let mut split = text[1..(text.len() - 1)].split(",");
                     let mut x = 0;
                     let mut m = 0;
                     let mut a = 0;
@@ -174,7 +179,6 @@ fn main() {
                     }
                     parts.push(Part::new(x, m, a, s));
                 }
-
             }
         }
     }
@@ -203,7 +207,9 @@ fn main() {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where P: AsRef<Path>, {
+where
+    P: AsRef<Path>,
+{
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
