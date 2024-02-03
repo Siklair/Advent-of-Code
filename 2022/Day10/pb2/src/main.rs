@@ -6,15 +6,23 @@ use nom::{
     branch::alt, bytes::complete::tag, character::complete::char, combinator::opt,
     combinator::value, sequence::preceded, IResult,
 };
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Position {
+    x: isize,
+    y: isize,
+}
+
 struct Cpu {
     x: isize,
     cycle: usize,
     result: isize,
+    sprite: HashSet<Position>,
 }
 
 impl Cpu {
@@ -23,10 +31,18 @@ impl Cpu {
             x: 1,
             cycle: 0,
             result: 0,
+            sprite: HashSet::new(),
         }
     }
 
     fn noop(&mut self) {
+        // if | cycle % 40 - x | <= 1, then add pos to sprite
+        if (self.cycle as isize % 40 - self.x).abs() <= 1 {
+            self.sprite.insert(Position {
+                x: self.cycle as isize / 40,
+                y: self.cycle as isize % 40,
+            });
+        }
         self.cycle += 1;
         if self.cycle % 40 == 20 {
             self.result += self.cycle as isize * self.x;
@@ -77,8 +93,19 @@ fn main() {
         }
     }
 
-    let result = cpu.result;
-    println!("result: {}", result);
+    // print the the sprite
+    // with # if present, else with .
+    for i in 0..6 {
+        for j in 0..40 {
+            let pos = Position { x: i, y: j };
+            if cpu.sprite.contains(&pos) {
+                print!("#");
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -96,7 +123,7 @@ addx -5
  */
 fn parse_command(input: &str) -> IResult<&str, Command> {
     let (input, cmd) = alt((
-        value(Command::Noop, nom::bytes::complete::tag("noop")),
+        value(Command::Noop, tag("noop")),
         preceded(
             tag("addx "),
             // number can be negative
