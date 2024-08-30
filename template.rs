@@ -7,7 +7,6 @@ const INPUT_FILE_NAME: &str = "input.txt";
 
 fn main() {
     let file = env::current_dir().unwrap()
-        .parent().unwrap()
         .join(
             Path::new("input.txt")
         );
