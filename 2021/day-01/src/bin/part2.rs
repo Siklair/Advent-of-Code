@@ -23,6 +23,7 @@ fn main() {
         println!("File not found: {}", INPUT_FILE_NAME);
     }
 
+    // It is actually possible to do the computation directly in the parsing loop, though I'm not sure it's possible to use windows
     let mut result = 0;
     let mut windows_iter = measurements.windows(SLIDING_WINDOW_SIZE);
     let mut last_window = windows_iter.next().unwrap();
