@@ -11,7 +11,7 @@ fn main() {
         );
 
     if let Ok(lines) = read_lines(file) {
-        for line in lines.flatten() {
+        for line in lines.map_while(Result::ok) {
 
         }
     }
