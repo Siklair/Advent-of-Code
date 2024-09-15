@@ -8,7 +8,7 @@ const INPUT_FILE_NAME: &str = "input.txt";
 fn main() {
     let file = env::current_dir().unwrap()
         .join(
-            Path::new("input.txt")
+            Path::new(INPUT_FILE_NAME)
         );
 
     if let Ok(lines) = read_lines(file) {
