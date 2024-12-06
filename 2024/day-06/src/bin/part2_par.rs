@@ -3,6 +3,8 @@ use std::env;
 use std::path::Path;
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::time::Instant;
+use rayon::prelude::*;
 
 const INPUT_FILE_NAME: &str = "input.txt";
 
@@ -88,6 +90,8 @@ fn main() {
         println!("File not found: {}", INPUT_FILE_NAME);
     }
 
+    let now = Instant::now();
+
     let mut guard_pos: Option<(usize, usize)> = Some(original_guard_pos);
 
 
@@ -99,27 +103,34 @@ fn main() {
         (guard_pos, direction) = guard_move(position, direction, &obstacles, max_lines, max_cols);
     }
 
-    let mut result = 0;
-
-    for obstacle_position in visited_pos {
+    let result: usize = visited_pos.into_par_iter().map(|obstacle_position| {
         let mut new_obstacles = obstacles.clone();
         new_obstacles.insert(obstacle_position);
         let mut visited_state = HashSet::new();
 
-        guard_pos = Some(original_guard_pos);
-        direction = Direction::Up;
+        let mut guard_pos = Some(original_guard_pos);
+        let mut direction = Direction::Up;
+
+        let mut loops = false;
 
         while let Some(position) = guard_pos {
             if visited_state.contains(&(position, direction)) {
-                result += 1;
+                loops = true;
                 break;
             }
             visited_state.insert((position, direction));
             (guard_pos, direction) = guard_move(position, direction, &new_obstacles, max_lines, max_cols);
         }
-    }
+        if loops {
+            1
+        } else {
+            0
+        }
+    }).sum();
 
-    println!("Result: {}", result);
+    let elapsed = now.elapsed();
+
+    println!("Result: {}, elapsed time: {:?}", result, elapsed);
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
